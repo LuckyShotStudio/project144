@@ -708,6 +708,7 @@ async function fetchNowPlaying() {
     if (!item) return;
 
     const isEpisode = d.currently_playing_type === 'episode';
+    const track = item;
     const title = item.name;
     const subtitle = isEpisode
       ? (item.show?.name || 'Podcast')
@@ -733,7 +734,7 @@ async function fetchNowPlaying() {
 
     // Progress
     spCurrentMs = d.progress_ms;
-    spDurationMs = track.duration_ms;
+    spDurationMs = item.duration_ms;
     spPlaying = d.is_playing;
     document.getElementById('sp-playbtn').innerHTML = spPlaying ? '&#9646;&#9646;' : '&#9654;';
     updateProgress();
@@ -844,6 +845,11 @@ async function loadCalendar() {
 }
 
 // -- WEEK VIEW CALENDAR --
+function safeText(s) {
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
 let calWeekOffset = 0; // 0 = this week, 1 = next week, -1 = last week
 let calAllEvents = [];
 let calTouchStartX = null;
