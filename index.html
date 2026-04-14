@@ -63,26 +63,9 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',system-u
 #lock-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;color:var(--muted);font-size:12px;cursor:pointer;transition:all 0.2s;}
 #lock-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
 
-/* WEATHER */
-#weather-card{grid-column:1;grid-row:2;}
-#weather-main{display:flex;align-items:center;gap:14px;margin-bottom:10px;}
-#weather-icon{font-size:48px;line-height:1;}
-#weather-temp{font-size:44px;font-weight:200;}
-#weather-desc{font-size:13px;color:var(--muted);margin-top:2px;}
-#weather-location{font-size:11px;color:var(--accent2);}
-#weather-details{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-.w-detail{background:var(--surface2);border-radius:8px;padding:8px 10px;}
-.w-detail-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
-.w-detail-val{font-size:16px;font-weight:300;margin-top:2px;}
-#weather-forecast{display:flex;gap:5px;margin-top:8px;}
-.fc-day{flex:1;background:var(--surface2);border-radius:8px;padding:6px 3px;text-align:center;}
-.fc-name{font-size:9px;color:var(--muted);}
-.fc-icon{font-size:16px;margin:3px 0;}
-.fc-hi{font-size:12px;font-weight:500;}
-.fc-lo{font-size:10px;color:var(--muted);}
 
 /* CALENDAR */
-#calendar-card{grid-column:2;grid-row:2;}
+#calendar-card{grid-column:1/3;grid-row:2;}
 #calendar-card iframe{flex:1;border:none;border-radius:8px;min-height:0;}
 .embed-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);text-align:center;gap:8px;font-size:12px;}
 .embed-placeholder div:first-child{font-size:32px;}
@@ -185,24 +168,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',system-u
   </div>
 
   <!-- WEATHER -->
-  <div class="card" id="weather-card">
-    <div class="card-title">Weather — Spencerport, NY</div>
-    <div id="weather-main">
-      <div id="weather-icon">⏳</div>
-      <div>
-        <div id="weather-temp">--°</div>
-        <div id="weather-desc">Loading...</div>
-        <div id="weather-location">Spencerport, NY</div>
-      </div>
-    </div>
-    <div id="weather-details">
-      <div class="w-detail"><div class="w-detail-label">Humidity</div><div class="w-detail-val" id="w-humidity">--%</div></div>
-      <div class="w-detail"><div class="w-detail-label">Wind</div><div class="w-detail-val" id="w-wind">-- mph</div></div>
-      <div class="w-detail"><div class="w-detail-label">Feels Like</div><div class="w-detail-val" id="w-feels">--°</div></div>
-      <div class="w-detail"><div class="w-detail-label">UV Index</div><div class="w-detail-val" id="w-uv">--</div></div>
-    </div>
-    <div id="weather-forecast"></div>
-  </div>
 
   <!-- CALENDAR -->
   <div class="card" id="calendar-card">
@@ -412,47 +377,7 @@ setTimeout(unlock, 800);
 
 // ── WEATHER ─────────────────────────────────────────
 // Spencerport, NY: 43.1854°N, 77.8044°W
-const WX_URL = 'https://api.open-meteo.com/v1/forecast'
-  + '?latitude=43.1854&longitude=-77.8044'
-  + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,uv_index'
-  + '&daily=weather_code,temperature_2m_max,temperature_2m_min'
-  + '&temperature_unit=fahrenheit&wind_speed_unit=mph'
-  + '&timezone=America%2FNew_York&forecast_days=6';
 
-const wIcon = c => c===0?'☀️':c<=2?'⛅':c<=3?'☁️':c<=48?'🌫️':c<=57?'🌦️':c<=67?'🌧️':c<=77?'❄️':c<=82?'🌦️':c<=86?'🌨️':'⛈️';
-const wDesc = c => c===0?'Clear':c<=2?'Partly cloudy':c<=3?'Overcast':c<=48?'Foggy':c<=57?'Drizzle':c<=67?'Rain':c<=77?'Snow':c<=82?'Rain showers':c<=86?'Snow showers':'Thunderstorm';
-const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-async function loadWeather() {
-  try {
-    const r = await fetch(WX_URL);
-    const d = await r.json();
-    const c = d.current;
-    document.getElementById('weather-icon').textContent = wIcon(c.weather_code);
-    document.getElementById('weather-temp').textContent = `${Math.round(c.temperature_2m)}°F`;
-    document.getElementById('weather-desc').textContent = wDesc(c.weather_code);
-    document.getElementById('w-humidity').textContent = `${c.relative_humidity_2m}%`;
-    document.getElementById('w-wind').textContent = `${Math.round(c.wind_speed_10m)} mph`;
-    document.getElementById('w-feels').textContent = `${Math.round(c.apparent_temperature)}°F`;
-    document.getElementById('w-uv').textContent = c.uv_index ?? '--';
-    const fc = document.getElementById('weather-forecast');
-    fc.innerHTML = '';
-    d.daily.time.slice(1,6).forEach((dt,i) => {
-      const day = new Date(dt+'T12:00:00').getDay();
-      const el = document.createElement('div');
-      el.className = 'fc-day';
-      el.innerHTML = `<div class="fc-name">${dayNames[day]}</div>
-        <div class="fc-icon">${wIcon(d.daily.weather_code[i+1])}</div>
-        <div class="fc-hi">${Math.round(d.daily.temperature_2m_max[i+1])}°</div>
-        <div class="fc-lo">${Math.round(d.daily.temperature_2m_min[i+1])}°</div>`;
-      fc.appendChild(el);
-    });
-  } catch(e) {
-    document.getElementById('weather-desc').textContent = 'Unavailable';
-  }
-}
-loadWeather();
-setInterval(loadWeather, 600000);
 
 // ── LISTS ────────────────────────────────────────────
 function saveLists() { localStorage.setItem('fdb_lists', JSON.stringify(lists)); }
@@ -618,50 +543,111 @@ function syncTasks(type) {
   pullTasks(type);
 }
 
-// -- SPOTIFY --
+// -- SPOTIFY PKCE --
 const SP_CLIENT_ID = '7b0dd274bc2a44f2acb780d9d5197c4e';
 const SP_REDIRECT = 'https://luckyshotstudio.github.io/project144/';
 const SP_SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing';
 let spToken = null;
-let spRefreshTimer = null;
 let spProgressTimer = null;
 let spCurrentMs = 0;
 let spDurationMs = 0;
 let spPlaying = false;
 
-function spotifyLogin() {
+async function generateCodeVerifier() {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function generateCodeChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function spotifyLogin() {
+  const verifier = await generateCodeVerifier();
+  const challenge = await generateCodeChallenge(verifier);
+  localStorage.setItem('sp_verifier', verifier);
   const params = new URLSearchParams({
     client_id: SP_CLIENT_ID,
-    response_type: 'token',
+    response_type: 'code',
     redirect_uri: SP_REDIRECT,
     scope: SP_SCOPES,
-    show_dialog: false
+    code_challenge_method: 'S256',
+    code_challenge: challenge
   });
   window.location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
 }
 
-function checkSpotifyCallback() {
-  const hash = window.location.hash.substring(1);
-  if (!hash) return;
-  const params = new URLSearchParams(hash);
-  const token = params.get('access_token');
-  const expiresIn = params.get('expires_in');
-  if (token) {
-    spToken = token;
-    localStorage.setItem('sp_token', token);
-    localStorage.setItem('sp_expires', Date.now() + parseInt(expiresIn) * 1000);
-    // Clean URL
-    history.replaceState(null, '', window.location.pathname);
-    initSpotify();
-  }
+async function checkSpotifyCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (!code) return;
+  history.replaceState(null, '', window.location.pathname);
+  const verifier = localStorage.getItem('sp_verifier');
+  if (!verifier) return;
+  try {
+    const r = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        client_id: SP_CLIENT_ID,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: SP_REDIRECT,
+        code_verifier: verifier
+      })
+    });
+    const data = await r.json();
+    if (data.access_token) {
+      spToken = data.access_token;
+      localStorage.setItem('sp_token', data.access_token);
+      localStorage.setItem('sp_refresh', data.refresh_token);
+      localStorage.setItem('sp_expires', Date.now() + data.expires_in * 1000);
+      localStorage.removeItem('sp_verifier');
+      initSpotify();
+    }
+  } catch(e) { console.error('Spotify token error:', e); }
 }
 
-function loadSpotifyToken() {
+async function refreshSpotifyToken() {
+  const refresh = localStorage.getItem('sp_refresh');
+  if (!refresh) return false;
+  try {
+    const r = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        client_id: SP_CLIENT_ID,
+        grant_type: 'refresh_token',
+        refresh_token: refresh
+      })
+    });
+    const data = await r.json();
+    if (data.access_token) {
+      spToken = data.access_token;
+      localStorage.setItem('sp_token', data.access_token);
+      localStorage.setItem('sp_expires', Date.now() + data.expires_in * 1000);
+      if (data.refresh_token) localStorage.setItem('sp_refresh', data.refresh_token);
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+async function loadSpotifyToken() {
   const token = localStorage.getItem('sp_token');
   const expires = localStorage.getItem('sp_expires');
-  if (token && expires && Date.now() < parseInt(expires)) {
-    spToken = token;
-    initSpotify();
+  if (token && expires) {
+    if (Date.now() < parseInt(expires) - 60000) {
+      spToken = token;
+      initSpotify();
+    } else {
+      // Try refresh
+      const ok = await refreshSpotifyToken();
+      if (ok) initSpotify();
+    }
   }
 }
 
@@ -775,6 +761,8 @@ async function spotifyPrev() {
 // Check for OAuth callback and load saved token
 checkSpotifyCallback();
 loadSpotifyToken();
+setInterval(async () => { if (spToken) { const ok = await refreshSpotifyToken(); if (ok && !document.getElementById('sp-player').style.display !== 'none') initSpotify(); } }, 45*60*1000);
+
 
 // -- GOOGLE CALENDAR --
 const CAL_COLORS = ['#7c6fff','#3ecfaa','#e05c5c','#f0a500','#4db8ff','#b06fff'];
@@ -885,6 +873,7 @@ function renderCalendar(events, now) {
 }
 
 setInterval(() => { if (gapiToken) loadCalendar(); }, 900000);
+setInterval(() => { if (gapiToken) { pullTasks('chores'); pullTasks('shopping'); } }, 1800000);
 
 // ── SETTINGS DRAWER ─────────────────────────────────
 function openSettings() {
