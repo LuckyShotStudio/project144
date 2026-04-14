@@ -66,7 +66,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',system-u
 
 
 /* CALENDAR */
-#calendar-card{grid-column:1/3;grid-row:2;}
+#calendar-card{grid-column:1/3;grid-row:2;position:relative;}
 #calendar-card iframe{flex:1;border:none;border-radius:8px;min-height:0;}
 .embed-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);text-align:center;gap:8px;font-size:12px;}
 .embed-placeholder div:first-child{font-size:32px;}
@@ -171,20 +171,35 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',system-u
   <!-- WEATHER -->
 
   <!-- CALENDAR -->
-  <div class="card" id="calendar-card">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;margin-bottom:10px;">
-      <div class="card-title" style="margin:0;">Family Calendar</div>
+  <div class="card" id="calendar-card" style="padding:0;overflow:hidden;">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;flex-shrink:0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button onclick="calPrevWeek()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 8px;border-radius:6px;">&#8249;</button>
+        <div id="cal-week-label" style="font-size:13px;font-weight:500;min-width:160px;text-align:center;">Loading...</div>
+        <button onclick="calNextWeek()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 8px;border-radius:6px;">&#8250;</button>
+        <button onclick="calGoToday()" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:10px;cursor:pointer;padding:3px 8px;">Today</button>
+      </div>
       <div style="display:flex;gap:6px;align-items:center;">
         <span id="cal-status" style="font-size:9px;color:var(--muted);">Not connected</span>
         <button class="sync-btn" style="font-size:10px;" onclick="loadCalendar()">↻</button>
       </div>
     </div>
-    <div id="cal-mini" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:8px;flex-shrink:0;"></div>
-    <div id="cal-events" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;min-height:0;">
-      <div class="embed-placeholder" id="cal-placeholder">
-        <div>📅</div>
-        <div>Sign in with Google (⚙ Settings) to view your private calendar</div>
-      </div>
+
+    <!-- Week grid -->
+    <div style="display:flex;flex:1;min-height:0;overflow:hidden;" id="cal-week-container"
+      ontouchstart="calTouchStart(event)"
+      ontouchend="calTouchEnd(event)">
+
+      <!-- Day columns -->
+      <div id="cal-week-grid" style="display:flex;flex:1;min-height:0;"></div>
+
+    </div>
+
+    <!-- Placeholder when not connected -->
+    <div class="embed-placeholder" id="cal-placeholder" style="position:absolute;inset:0;display:flex;">
+      <div>📅</div>
+      <div style="font-size:11px;">Sign in with Google (⚙ Settings) to view your calendar</div>
     </div>
   </div>
 
@@ -668,7 +683,7 @@ function initSpotify() {
 async function fetchNowPlaying() {
   if (!spToken) return;
   try {
-    const r = await fetch('https://api.spotify.com/v1/me/player', {
+    const r = await fetch('https://api.spotify.com/v1/me/player?additional_types=track,episode', {
       headers: {'Authorization': 'Bearer ' + spToken}
     });
     if (r.status === 401) {
@@ -686,15 +701,24 @@ async function fetchNowPlaying() {
       return;
     }
     const d = await r.json();
-    if (!d || !d.item) return;
+    if (!d) return;
 
-    const track = d.item;
-    const artists = track.artists.map(a => a.name).join(', ');
-    const albumArt = track.album.images[0]?.url;
+    // Handle both tracks and podcast episodes
+    const item = d.item || d.episode;
+    if (!item) return;
 
-    document.getElementById('sp-track').textContent = track.name;
-    document.getElementById('sp-artist').textContent = artists;
-    document.getElementById('sp-album').textContent = track.album.name;
+    const isEpisode = d.currently_playing_type === 'episode';
+    const title = item.name;
+    const subtitle = isEpisode
+      ? (item.show?.name || 'Podcast')
+      : item.artists?.map(a => a.name).join(', ') || '';
+    const detail = isEpisode ? '' : (item.album?.name || '');
+    const images = isEpisode ? item.images : item.album?.images;
+    const albumArt = images?.[0]?.url;
+
+    document.getElementById('sp-track').textContent = title;
+    document.getElementById('sp-artist').textContent = subtitle;
+    document.getElementById('sp-album').textContent = detail;
 
     if (albumArt) {
       const img = document.getElementById('sp-art');
@@ -704,7 +728,7 @@ async function fetchNowPlaying() {
     }
 
     // Update open button to current track
-    const trackUrl = track.external_urls?.spotify || 'https://open.spotify.com';
+    const trackUrl = item.external_urls?.spotify || 'https://open.spotify.com';
     document.getElementById('sp-open-btn').href = trackUrl;
 
     // Progress
@@ -819,65 +843,122 @@ async function loadCalendar() {
   }
 }
 
-function renderCalendar(events, now) {
-  const container = document.getElementById('cal-events');
-  const placeholder = document.getElementById('cal-placeholder');
-  const miniEl = document.getElementById('cal-mini');
-  miniEl.innerHTML = '';
-  const dayShort = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + i);
-    const dStr = d.toISOString().slice(0,10);
-    const hasEv = events.some(ev => (ev.start.dateTime || ev.start.date).startsWith(dStr));
-    const isToday = i === 0;
-    const cell = document.createElement('div');
-    cell.style.cssText = 'text-align:center;padding:4px 2px;border-radius:6px;font-size:10px;' +
-      (isToday ? 'background:var(--accent);color:#fff;' : 'background:var(--surface2);color:var(--muted);');
-    cell.innerHTML = '<div>' + dayShort[d.getDay()] + '</div>' +
-      '<div style="font-weight:500;font-size:11px;">' + d.getDate() + '</div>' +
-      (hasEv ? '<div style="width:4px;height:4px;border-radius:50%;background:' + (isToday?'#fff':'var(--accent2)') + ';margin:2px auto 0;"></div>' : '<div style="height:6px;"></div>');
-    miniEl.appendChild(cell);
-  }
-  Array.from(container.children).forEach(c => { if (c.id !== 'cal-placeholder') c.remove(); });
-  if (events.length === 0) {
-    placeholder.style.display = 'flex';
-    placeholder.querySelector('div:last-child').textContent = 'No upcoming events';
-    return;
-  }
-  placeholder.style.display = 'none';
-  let lastDate = '';
-  events.slice(0,30).forEach(ev => {
-    const isAllDay = !ev.start.dateTime;
-    const startRaw = ev.start.dateTime || ev.start.date;
-    const startDate = new Date(isAllDay ? startRaw + 'T00:00:00' : startRaw);
-    const dateKey = startDate.toDateString();
-    if (dateKey !== lastDate) {
-      lastDate = dateKey;
-      const div = document.createElement('div');
-      div.style.cssText = 'font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;flex-shrink:0;padding:2px 0;';
-      const isToday2 = dateKey === now.toDateString();
-      const isTomorrow = dateKey === new Date(now.getTime()+86400000).toDateString();
-      div.textContent = isToday2 ? 'Today' : isTomorrow ? 'Tomorrow' :
-        startDate.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-      container.appendChild(div);
-    }
-    const timeStr = isAllDay ? 'All day' :
-      new Date(ev.start.dateTime).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-    const item = document.createElement('div');
-    item.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:8px;padding:8px 10px;flex-shrink:0;border-left:3px solid ' + ev._color + ';';
-    const dl = document.createElement('div');
-    dl.style.cssText = 'flex:1;min-width:0;';
-    const title = document.createElement('div');
-    title.style.cssText = 'font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-    title.textContent = ev.summary || '(No title)';
-    const sub = document.createElement('div');
-    sub.style.cssText = 'font-size:10px;color:var(--muted);margin-top:1px;';
-    sub.textContent = timeStr + (ev.location ? ' · ' + ev.location.split(',')[0] : '');
-    dl.appendChild(title); dl.appendChild(sub); item.appendChild(dl);
-    container.appendChild(item);
-  });
+// -- WEEK VIEW CALENDAR --
+let calWeekOffset = 0; // 0 = this week, 1 = next week, -1 = last week
+let calAllEvents = [];
+let calTouchStartX = null;
+
+function calGetWeekStart(offset) {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - day + (offset * 7));
+  weekStart.setHours(0,0,0,0);
+  return weekStart;
 }
+
+function calPrevWeek() { calWeekOffset--; renderWeekView(calAllEvents); }
+function calNextWeek() { calWeekOffset++; renderWeekView(calAllEvents); }
+function calGoToday()  { calWeekOffset = 0; renderWeekView(calAllEvents); }
+
+function calTouchStart(e) { calTouchStartX = e.touches[0].clientX; }
+function calTouchEnd(e) {
+  if (calTouchStartX === null) return;
+  const dx = e.changedTouches[0].clientX - calTouchStartX;
+  if (Math.abs(dx) > 60) { dx < 0 ? calNextWeek() : calPrevWeek(); }
+  calTouchStartX = null;
+}
+
+function renderWeekView(events) {
+  calAllEvents = events;
+  const grid = document.getElementById('cal-week-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  const weekStart = calGetWeekStart(calWeekOffset);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23,59,59);
+
+  const now = new Date();
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Update header label
+  const startLabel = months[weekStart.getMonth()] + ' ' + weekStart.getDate();
+  const endLabel = months[weekEnd.getMonth()] + ' ' + weekEnd.getDate() + ', ' + weekEnd.getFullYear();
+  document.getElementById('cal-week-label').textContent = startLabel + ' – ' + endLabel;
+
+  // Filter events for this week
+  const weekEvents = events.filter(ev => {
+    const s = new Date(ev.start.dateTime || ev.start.date + 'T00:00:00');
+    return s >= weekStart && s <= weekEnd;
+  });
+
+  // Build 7 day columns
+  for (let d = 0; d < 7; d++) {
+    const dayDate = new Date(weekStart);
+    dayDate.setDate(weekStart.getDate() + d);
+    const dayStr = dayDate.toISOString().slice(0,10);
+    const isToday = dayDate.toDateString() === now.toDateString();
+
+    const col = document.createElement('div');
+    col.style.cssText = 'flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border);min-width:0;' +
+      (d === 6 ? 'border-right:none;' : '');
+
+    // Day header
+    const header = document.createElement('div');
+    header.style.cssText = 'text-align:center;padding:6px 2px;flex-shrink:0;border-bottom:1px solid var(--border);' +
+      (isToday ? 'background:rgba(124,111,255,0.15);' : '');
+    header.innerHTML =
+      '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">' + dayNames[dayDate.getDay()] + '</div>' +
+      '<div style="font-size:16px;font-weight:' + (isToday?'500':'300') + ';color:' + (isToday?'var(--accent)':'var(--text)') + ';">' + dayDate.getDate() + '</div>';
+    col.appendChild(header);
+
+    // Events for this day
+    const eventsEl = document.createElement('div');
+    eventsEl.style.cssText = 'flex:1;overflow-y:auto;padding:4px 3px;display:flex;flex-direction:column;gap:3px;';
+    eventsEl.style.cssText += 'scrollbar-width:none;';
+
+    const dayEvs = weekEvents.filter(ev => {
+      const s = ev.start.dateTime || ev.start.date;
+      return s.startsWith(dayStr);
+    }).sort((a,b) => {
+      const at = a.start.dateTime || a.start.date;
+      const bt = b.start.dateTime || b.start.date;
+      return at < bt ? -1 : 1;
+    });
+
+    if (dayEvs.length === 0) {
+      eventsEl.innerHTML = '';
+    } else {
+      dayEvs.forEach(ev => {
+        const isAllDay = !ev.start.dateTime;
+        const timeStr = isAllDay ? 'All day' :
+          new Date(ev.start.dateTime).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+        const evEl = document.createElement('div');
+        evEl.style.cssText = 'border-radius:4px;padding:4px 5px;font-size:10px;border-left:3px solid ' + ev._color + ';background:var(--surface2);cursor:default;';
+        evEl.innerHTML =
+          '<div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);">' + safeText(ev.summary || '(No title)') + '</div>' +
+          '<div style="color:var(--muted);margin-top:1px;">' + timeStr + '</div>';
+        eventsEl.appendChild(evEl);
+      });
+    }
+
+    col.appendChild(eventsEl);
+    grid.appendChild(col);
+  }
+
+  // Hide placeholder
+  const ph = document.getElementById('cal-placeholder');
+  if (ph && events !== null) ph.style.display = 'none';
+}
+
+function renderCalendar(events, now) {
+  renderWeekView(events);
+}
+
+renderWeekView([]);
 
 setInterval(() => { if (gapiToken) loadCalendar(); }, 900000);
 setInterval(() => { if (gapiToken) { pullTasks('chores'); pullTasks('shopping'); } }, 1800000);
