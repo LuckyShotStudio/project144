@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Family Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0d0d12;
+  --surface:#16161f;
+  --surface2:#1e1e2a;
+  --border:rgba(255,255,255,0.07);
+  --text:#ececec;
+  --muted:#777;
+  --accent:#7c6fff;
+  --accent2:#3ecfaa;
+  --red:#e05c5c;
+  --radius:14px;
+}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);}
+
+/* SCREENSAVER */
+#screensaver{
+  position:fixed;inset:0;z-index:200;
+  background:#111 center/cover no-repeat;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  transition:opacity 0.7s ease;
+  touch-action:none;
+}
+#screensaver.hidden{opacity:0;pointer-events:none;}
+#ss-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.4);}
+#ss-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-58%);text-align:center;z-index:1;}
+#ss-time{font-size:clamp(72px,14vw,130px);font-weight:200;letter-spacing:-3px;color:#fff;text-shadow:0 4px 40px rgba(0,0,0,0.7);}
+#ss-date{font-size:clamp(18px,2.5vw,26px);color:rgba(255,255,255,0.75);margin-top:6px;letter-spacing:1px;}
+#swipe-hint{position:relative;z-index:1;margin-bottom:52px;display:flex;flex-direction:column;align-items:center;gap:10px;animation:floatup 2.2s ease-in-out infinite;}
+#swipe-hint span{color:rgba(255,255,255,0.55);font-size:13px;letter-spacing:1px;text-transform:uppercase;}
+.chevrons{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.chev{width:22px;height:22px;border-right:2px solid rgba(255,255,255,0.5);border-top:2px solid rgba(255,255,255,0.5);transform:rotate(-45deg);}
+.chev:nth-child(2){opacity:0.5;}
+.chev:nth-child(3){opacity:0.2;}
+@keyframes floatup{0%,100%{transform:translateY(0);opacity:0.7;}50%{transform:translateY(-8px);opacity:1;}}
+
+/* DASHBOARD */
+#dashboard{
+  width:100%;height:100vh;
+  display:grid;
+  grid-template-columns:1fr 1fr 330px;
+  grid-template-rows:68px 1fr 1fr;
+  gap:8px;padding:8px;
+  transition:opacity 0.7s ease;
+}
+/* When settings panel is open, shrink dashboard slightly */
+#dashboard.drawer-open{padding-right:348px;}
+#dashboard.hidden{opacity:0;pointer-events:none;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;overflow:hidden;display:flex;flex-direction:column;}
+.card-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;flex-shrink:0;}
+
+/* TOP BAR */
+#topbar{grid-column:1/-1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;padding:0 20px;}
+#clock-main{font-size:30px;font-weight:200;letter-spacing:-1px;}
+#date-main{font-size:14px;color:var(--muted);}
+#lock-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;color:var(--muted);font-size:12px;cursor:pointer;transition:all 0.2s;}
+#lock-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* WEATHER */
+#weather-card{grid-column:1;grid-row:2;}
+#weather-main{display:flex;align-items:center;gap:14px;margin-bottom:10px;}
+#weather-icon{font-size:48px;line-height:1;}
+#weather-temp{font-size:44px;font-weight:200;}
+#weather-desc{font-size:13px;color:var(--muted);margin-top:2px;}
+#weather-location{font-size:11px;color:var(--accent2);}
+#weather-details{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.w-detail{background:var(--surface2);border-radius:8px;padding:8px 10px;}
+.w-detail-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.w-detail-val{font-size:16px;font-weight:300;margin-top:2px;}
+#weather-forecast{display:flex;gap:5px;margin-top:8px;}
+.fc-day{flex:1;background:var(--surface2);border-radius:8px;padding:6px 3px;text-align:center;}
+.fc-name{font-size:9px;color:var(--muted);}
+.fc-icon{font-size:16px;margin:3px 0;}
+.fc-hi{font-size:12px;font-weight:500;}
+.fc-lo{font-size:10px;color:var(--muted);}
+
+/* CALENDAR */
+#calendar-card{grid-column:2;grid-row:2;}
+#calendar-card iframe{flex:1;border:none;border-radius:8px;min-height:0;}
+.embed-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);text-align:center;gap:8px;font-size:12px;}
+.embed-placeholder div:first-child{font-size:32px;}
+
+/* SPOTIFY */
+#spotify-card{grid-column:3;grid-row:2/4;}
+#spotify-card iframe{flex:1;border:none;border-radius:8px;min-height:0;}
+
+/* LISTS */
+#chores-card{grid-column:1;grid-row:3;}
+#shopping-card{grid-column:2;grid-row:3;}
+.list-items{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;min-height:0;}
+.list-items::-webkit-scrollbar{width:3px;}
+.list-items::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.task-item{display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:8px;padding:9px 10px;transition:opacity 0.2s;}
+.task-item.done{opacity:0.38;}
+.task-item.done .task-text{text-decoration:line-through;}
+.task-check{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.2s;}
+.task-check.checked{background:var(--accent2);border-color:var(--accent2);}
+.task-check.checked::after{content:'✓';font-size:10px;color:#000;}
+.task-text{flex:1;font-size:13px;}
+.task-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:2px 5px;border-radius:4px;}
+.task-del:hover{color:var(--red);}
+.task-synced{font-size:9px;color:var(--accent2);}
+.list-input-row{display:flex;gap:6px;margin-top:8px;flex-shrink:0;}
+.list-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit;outline:none;}
+.list-input:focus{border-color:var(--accent);}
+.list-add-btn{background:var(--accent);border:none;border-radius:8px;padding:7px 12px;color:#fff;font-size:16px;cursor:pointer;flex-shrink:0;}
+.sync-row{display:flex;align-items:center;margin-bottom:6px;flex-shrink:0;}
+.sync-status{font-size:9px;color:var(--muted);}
+.sync-status.ok{color:var(--accent2);}
+.sync-status.err{color:var(--red);}
+.sync-btn{background:none;border:none;color:var(--accent2);font-size:10px;cursor:pointer;text-decoration:underline;margin-left:auto;}
+
+/* SETTINGS DRAWER */
+#settings-drawer{
+  position:fixed;top:0;right:0;height:100vh;width:320px;z-index:250;
+  background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+#settings-drawer.open{transform:translateX(0);}
+#drawer-inner{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;}
+#drawer-inner::-webkit-scrollbar{width:3px;}
+#drawer-inner::-webkit-scrollbar-thumb{background:var(--border);}
+#drawer-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
+#drawer-header h2{font-size:15px;font-weight:500;margin:0;}
+#drawer-close{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;padding:2px 8px;border-radius:6px;}
+#drawer-close:hover{color:var(--text);background:var(--surface2);}
+#settings-scrim{display:none;position:fixed;inset:0;z-index:240;background:rgba(0,0,0,0.45);}
+#settings-scrim.show{display:block;}
+.s-section{margin-bottom:16px;}
+.s-label{font-size:11px;font-weight:500;color:var(--accent);margin-bottom:4px;}
+.s-hint{font-size:10px;color:var(--muted);margin-bottom:5px;line-height:1.5;}
+.s-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 9px;color:var(--text);font-size:11px;font-family:inherit;outline:none;margin-bottom:4px;}
+.s-input:focus{border-color:var(--accent);}
+.s-file{font-size:11px;color:var(--muted);margin-bottom:4px;width:100%;}
+.save-btn{background:var(--accent);border:none;border-radius:8px;padding:9px;color:#fff;font-size:12px;cursor:pointer;width:100%;margin-top:4px;}
+#settings-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 13px;color:var(--muted);font-size:20px;cursor:pointer;transition:all 0.2s;line-height:1;}
+#settings-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* AUTH OVERLAY */
+#auth-overlay{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;}
+#auth-overlay.show{display:flex;}
+#auth-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;max-width:380px;width:90%;text-align:center;}
+#auth-box h2{margin-bottom:10px;font-size:18px;}
+#auth-box p{color:var(--muted);font-size:12px;margin-bottom:18px;line-height:1.6;}
+#google-signin-btn{background:#4285f4;border:none;border-radius:8px;padding:12px 22px;color:#fff;font-size:14px;cursor:pointer;margin:0 auto 10px;display:block;width:100%;}
+#skip-auth{background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;}
+</style>
+</head>
+<body>
+
+<!-- SCREENSAVER -->
+<div id="screensaver">
+  <div id="ss-overlay"></div>
+  <div id="ss-center">
+    <div id="ss-time">12:00 AM</div>
+    <div id="ss-date">Loading...</div>
+  </div>
+  <div id="swipe-hint">
+    <div class="chevrons">
+      <div class="chev"></div><div class="chev"></div><div class="chev"></div>
+    </div>
+    <span>Swipe up to unlock</span>
+  </div>
+</div>
+
+<!-- AUTH OVERLAY -->
+<div id="auth-overlay">
+  <div id="auth-box">
+    <h2>Connect Google Tasks</h2>
+    <p>Sign in with Google so your chore and shopping lists sync with the Google Tasks app on your phones. Your family can add items from anywhere.</p>
+    <button id="google-signin-btn">Sign in with Google</button>
+    <button id="skip-auth">Skip — use local lists only</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="hidden">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div id="clock-main">12:00 PM</div>
+    <div id="date-main">Loading date...</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button id="lock-btn">Lock Screen</button>
+      <button id="settings-btn" title="Settings">⚙</button>
+    </div>
+  </div>
+
+  <!-- WEATHER -->
+  <div class="card" id="weather-card">
+    <div class="card-title">Weather — Spencerport, NY</div>
+    <div id="weather-main">
+      <div id="weather-icon">⏳</div>
+      <div>
+        <div id="weather-temp">--°</div>
+        <div id="weather-desc">Loading...</div>
+        <div id="weather-location">Spencerport, NY</div>
+      </div>
+    </div>
+    <div id="weather-details">
+      <div class="w-detail"><div class="w-detail-label">Humidity</div><div class="w-detail-val" id="w-humidity">--%</div></div>
+      <div class="w-detail"><div class="w-detail-label">Wind</div><div class="w-detail-val" id="w-wind">-- mph</div></div>
+      <div class="w-detail"><div class="w-detail-label">Feels Like</div><div class="w-detail-val" id="w-feels">--°</div></div>
+      <div class="w-detail"><div class="w-detail-label">UV Index</div><div class="w-detail-val" id="w-uv">--</div></div>
+    </div>
+    <div id="weather-forecast"></div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="card" id="calendar-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;margin-bottom:10px;">
+      <div class="card-title" style="margin:0;">Family Calendar</div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span id="cal-status" style="font-size:9px;color:var(--muted);">Not connected</span>
+        <button class="sync-btn" style="font-size:10px;" onclick="loadCalendar()">↻</button>
+      </div>
+    </div>
+    <div id="cal-mini" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:8px;flex-shrink:0;"></div>
+    <div id="cal-events" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;min-height:0;">
+      <div class="embed-placeholder" id="cal-placeholder">
+        <div>📅</div>
+        <div>Sign in with Google (⚙ Settings) to view your private calendar</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPOTIFY -->
+  <div class="card" id="spotify-card">
+    <div class="card-title">Spotify</div>
+    <iframe id="spotify-iframe" src="about:blank" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" style="display:none;flex:1;border:none;border-radius:8px;min-height:0;"></iframe>
+    <div class="embed-placeholder" id="spotify-placeholder">
+      <div>🎵</div>
+      <div>Paste your Spotify playlist embed URL in Settings →</div>
+    </div>
+  </div>
+
+  <!-- CHORES -->
+  <div class="card" id="chores-card">
+    <div class="card-title">Chore List</div>
+    <div class="sync-row">
+      <span class="sync-status" id="chores-status">Local only</span>
+      <button class="sync-btn" onclick="syncTasks('chores')">↻ Sync</button>
+    </div>
+    <div class="list-items" id="chores-list"></div>
+    <div class="list-input-row">
+      <input class="list-input" id="chores-input" placeholder="Add a chore..." />
+      <button class="list-add-btn" onclick="addTask('chores')">+</button>
+    </div>
+  </div>
+
+  <!-- SHOPPING -->
+  <div class="card" id="shopping-card">
+    <div class="card-title">Shopping List</div>
+    <div class="sync-row">
+      <span class="sync-status" id="shopping-status">Local only</span>
+      <button class="sync-btn" onclick="syncTasks('shopping')">↻ Sync</button>
+    </div>
+    <div class="list-items" id="shopping-list"></div>
+    <div class="list-input-row">
+      <input class="list-input" id="shopping-input" placeholder="Add an item..." />
+      <button class="list-add-btn" onclick="addTask('shopping')">+</button>
+    </div>
+  </div>
+
+</div><!-- end dashboard -->
+
+<!-- SETTINGS SCRIM -->
+<div id="settings-scrim" onclick="closeSettings()"></div>
+
+<!-- SETTINGS DRAWER -->
+<div id="settings-drawer">
+  <div id="drawer-header">
+    <h2>⚙ Settings</h2>
+    <button id="drawer-close" onclick="closeSettings()">×</button>
+  </div>
+  <div id="drawer-inner">
+
+    <div class="s-section">
+      <div class="s-label">Screensaver Image</div>
+      <div class="s-hint">Upload a photo to display when the screen is idle.</div>
+      <input type="file" id="ss-upload" accept="image/*" class="s-file">
+    </div>
+
+    <div class="s-section">
+      <div class="s-label">Spotify</div>
+      <div class="s-hint">Spotify → right-click playlist → Share → Embed → copy the src URL:</div>
+      <input class="s-input" id="spotify-url-input" placeholder="https://open.spotify.com/embed/playlist/..." />
+    </div>
+
+    <div class="s-section">
+      <div class="s-label">Google Tasks — OAuth Client ID</div>
+      <div class="s-hint">From Google Cloud Console (free). Enables list syncing across phones.</div>
+      <input class="s-input" id="gapi-client-id" placeholder="xxxxxx.apps.googleusercontent.com" />
+    </div>
+
+    <button class="save-btn" onclick="saveConfig()">Save Settings</button>
+
+  </div>
+</div>
+
+<script>
+// ── CONFIG & STATE ──────────────────────────────────
+let cfg = JSON.parse(localStorage.getItem('fdb_cfg') || '{}');
+let lists = JSON.parse(localStorage.getItem('fdb_lists') || '{"chores":[],"shopping":[]}');
+let gapiToken = null;
+let taskListIds = {chores:null, shopping:null};
+let idleTimer = null;
+const IDLE_MS = 90000;
+
+// ── CLOCK ───────────────────────────────────────────
+function tick() {
+  const n = new Date();
+  const h = n.getHours(), m = String(n.getMinutes()).padStart(2,'0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = (h%12)||12;
+  const ts = `${h12}:${m} ${ampm}`;
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const ds = `${days[n.getDay()]}, ${months[n.getMonth()]} ${n.getDate()}, ${n.getFullYear()}`;
+  document.getElementById('clock-main').textContent = ts;
+  document.getElementById('date-main').textContent = ds;
+  document.getElementById('ss-time').textContent = ts;
+  document.getElementById('ss-date').textContent = ds;
+}
+setInterval(tick, 1000);
+tick();
+
+// ── SCREENSAVER ─────────────────────────────────────
+const ss = document.getElementById('screensaver');
+const dash = document.getElementById('dashboard');
+let ssOn = true;
+
+function lockScreen() {
+  ssOn = true;
+  ss.classList.remove('hidden');
+  dash.classList.add('hidden');
+  clearTimeout(idleTimer);
+}
+
+function unlock() {
+  ssOn = false;
+  ss.classList.add('hidden');
+  dash.classList.remove('hidden');
+  resetIdle();
+}
+
+function resetIdle() {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(lockScreen, IDLE_MS);
+}
+
+// Swipe up to unlock
+let touchY0 = null;
+ss.addEventListener('touchstart', e => { touchY0 = e.touches[0].clientY; }, {passive:true});
+ss.addEventListener('touchend', e => {
+  if (touchY0 === null) return;
+  if (touchY0 - e.changedTouches[0].clientY > 60) unlock();
+  touchY0 = null;
+});
+ss.addEventListener('click', unlock);
+
+document.getElementById('lock-btn').addEventListener('click', lockScreen);
+
+['mousemove','touchstart','keydown','click'].forEach(ev =>
+  document.addEventListener(ev, () => { if (!ssOn) resetIdle(); }, {passive:true})
+);
+
+// Screensaver image upload
+document.getElementById('ss-upload').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    ss.style.backgroundImage = `url('${ev.target.result}')`;
+    localStorage.setItem('fdb_ss_img', ev.target.result);
+  };
+  reader.readAsDataURL(file);
+});
+const savedImg = localStorage.getItem('fdb_ss_img');
+if (savedImg) ss.style.backgroundImage = `url('${savedImg}')`;
+
+// Start unlocked after a beat
+setTimeout(unlock, 800);
+
+// ── WEATHER ─────────────────────────────────────────
+// Spencerport, NY: 43.1854°N, 77.8044°W
+const WX_URL = 'https://api.open-meteo.com/v1/forecast'
+  + '?latitude=43.1854&longitude=-77.8044'
+  + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,uv_index'
+  + '&daily=weather_code,temperature_2m_max,temperature_2m_min'
+  + '&temperature_unit=fahrenheit&wind_speed_unit=mph'
+  + '&timezone=America%2FNew_York&forecast_days=6';
+
+const wIcon = c => c===0?'☀️':c<=2?'⛅':c<=3?'☁️':c<=48?'🌫️':c<=57?'🌦️':c<=67?'🌧️':c<=77?'❄️':c<=82?'🌦️':c<=86?'🌨️':'⛈️';
+const wDesc = c => c===0?'Clear':c<=2?'Partly cloudy':c<=3?'Overcast':c<=48?'Foggy':c<=57?'Drizzle':c<=67?'Rain':c<=77?'Snow':c<=82?'Rain showers':c<=86?'Snow showers':'Thunderstorm';
+const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+async function loadWeather() {
+  try {
+    const r = await fetch(WX_URL);
+    const d = await r.json();
+    const c = d.current;
+    document.getElementById('weather-icon').textContent = wIcon(c.weather_code);
+    document.getElementById('weather-temp').textContent = `${Math.round(c.temperature_2m)}°F`;
+    document.getElementById('weather-desc').textContent = wDesc(c.weather_code);
+    document.getElementById('w-humidity').textContent = `${c.relative_humidity_2m}%`;
+    document.getElementById('w-wind').textContent = `${Math.round(c.wind_speed_10m)} mph`;
+    document.getElementById('w-feels').textContent = `${Math.round(c.apparent_temperature)}°F`;
+    document.getElementById('w-uv').textContent = c.uv_index ?? '--';
+    const fc = document.getElementById('weather-forecast');
+    fc.innerHTML = '';
+    d.daily.time.slice(1,6).forEach((dt,i) => {
+      const day = new Date(dt+'T12:00:00').getDay();
+      const el = document.createElement('div');
+      el.className = 'fc-day';
+      el.innerHTML = `<div class="fc-name">${dayNames[day]}</div>
+        <div class="fc-icon">${wIcon(d.daily.weather_code[i+1])}</div>
+        <div class="fc-hi">${Math.round(d.daily.temperature_2m_max[i+1])}°</div>
+        <div class="fc-lo">${Math.round(d.daily.temperature_2m_min[i+1])}°</div>`;
+      fc.appendChild(el);
+    });
+  } catch(e) {
+    document.getElementById('weather-desc').textContent = 'Unavailable';
+  }
+}
+loadWeather();
+setInterval(loadWeather, 600000);
+
+// ── LISTS ────────────────────────────────────────────
+function saveLists() { localStorage.setItem('fdb_lists', JSON.stringify(lists)); }
+
+function renderList(type) {
+  const el = document.getElementById(`${type}-list`);
+  el.innerHTML = '';
+  lists[type].forEach((t, i) => {
+    const div = document.createElement('div');
+    div.className = 'task-item' + (t.done?' done':'');
+    div.innerHTML = `
+      <div class="task-check${t.done?' checked':''}" onclick="toggle('${type}',${i})"></div>
+      <div style="flex:1">
+        <div class="task-text">${esc(t.text)}</div>
+        ${t.synced?'<div class="task-synced">synced</div>':''}
+      </div>
+      <button class="task-del" onclick="del('${type}',${i})">×</button>`;
+    el.appendChild(div);
+  });
+}
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function addTask(type) {
+  const inp = document.getElementById(`${type}-input`);
+  const text = inp.value.trim();
+  if (!text) return;
+  lists[type].push({text, done:false, synced:false, id:null});
+  saveLists(); renderList(type); inp.value='';
+  if (gapiToken) pushTask(type, lists[type].length-1);
+}
+
+function toggle(type, i) {
+  lists[type][i].done = !lists[type][i].done;
+  saveLists(); renderList(type);
+  if (gapiToken && lists[type][i].id) patchTask(type, i);
+}
+
+function del(type, i) {
+  if (gapiToken && lists[type][i].id) removeTask(type, i);
+  lists[type].splice(i,1);
+  saveLists(); renderList(type);
+}
+
+document.getElementById('chores-input').addEventListener('keydown', e => { if(e.key==='Enter') addTask('chores'); });
+document.getElementById('shopping-input').addEventListener('keydown', e => { if(e.key==='Enter') addTask('shopping'); });
+
+renderList('chores');
+renderList('shopping');
+
+function setStatus(type, cls, msg) {
+  const el = document.getElementById(`${type}-status`);
+  el.className = 'sync-status' + (cls?' '+cls:'');
+  el.textContent = msg;
+}
+
+// ── GOOGLE TASKS ─────────────────────────────────────
+function initGapi(clientId) {
+  const sc = document.createElement('script');
+  sc.src = 'https://accounts.google.com/gsi/client';
+  sc.onload = () => {
+    window._tc = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/calendar.readonly',
+      callback: async resp => {
+        if (!resp.access_token) return;
+        gapiToken = resp.access_token;
+        setStatus('chores','ok','Connected');
+        setStatus('shopping','ok','Connected');
+        await ensureLists();
+        await loadCalendar();
+      }
+    });
+    document.getElementById('auth-overlay').classList.add('show');
+  };
+  document.head.appendChild(sc);
+}
+
+document.getElementById('google-signin-btn').addEventListener('click', () => {
+  document.getElementById('auth-overlay').classList.remove('show');
+  if (window._tc) window._tc.requestAccessToken();
+});
+document.getElementById('skip-auth').addEventListener('click', () => {
+  document.getElementById('auth-overlay').classList.remove('show');
+});
+
+async function gReq(url, method='GET', body=null) {
+  const opts = {method, headers:{'Authorization':'Bearer '+gapiToken,'Content-Type':'application/json'}};
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  if (r.status === 204) return null;
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+const BASE = 'https://tasks.googleapis.com/tasks/v1';
+
+async function ensureLists() {
+  const data = await gReq(`${BASE}/users/@me/lists`);
+  const all = data.items || [];
+  const names = {chores:'Family Chores', shopping:'Shopping List'};
+  for (const type of ['chores','shopping']) {
+    const found = all.find(l => l.title === names[type]);
+    if (found) { taskListIds[type] = found.id; await pullTasks(type); }
+    else {
+      const created = await gReq(`${BASE}/users/@me/lists`,'POST',{title:names[type]});
+      taskListIds[type] = created.id;
+      for (let i=0; i<lists[type].length; i++) await pushTask(type,i);
+    }
+  }
+}
+
+async function pullTasks(type) {
+  setStatus(type,'','⏳ Syncing...');
+  try {
+    const data = await gReq(`${BASE}/lists/${taskListIds[type]}/tasks?showCompleted=true`);
+    const remote = data.items || [];
+    remote.forEach(rt => {
+      if (!lists[type].find(lt => lt.id === rt.id)) {
+        lists[type].push({text:rt.title, done:rt.status==='completed', synced:true, id:rt.id});
+      }
+    });
+    saveLists(); renderList(type);
+    const t = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    setStatus(type,'ok',`✓ Synced ${t}`);
+  } catch(e) { setStatus(type,'err','✗ Sync failed'); }
+}
+
+async function pushTask(type, i) {
+  if (!taskListIds[type]) return;
+  const t = lists[type][i];
+  const data = await gReq(`${BASE}/lists/${taskListIds[type]}/tasks`,'POST',
+    {title:t.text, status:t.done?'completed':'needsAction'});
+  lists[type][i].id = data.id;
+  lists[type][i].synced = true;
+  saveLists(); renderList(type);
+}
+
+async function patchTask(type, i) {
+  const t = lists[type][i];
+  if (!taskListIds[type] || !t.id) return;
+  await gReq(`${BASE}/lists/${taskListIds[type]}/tasks/${t.id}`,'PATCH',
+    {status:t.done?'completed':'needsAction'});
+}
+
+async function removeTask(type, i) {
+  const t = lists[type][i];
+  if (!taskListIds[type] || !t.id) return;
+  await gReq(`${BASE}/lists/${taskListIds[type]}/tasks/${t.id}`,'DELETE');
+}
+
+function syncTasks(type) {
+  if (!gapiToken) {
+    if (window._tc) window._tc.requestAccessToken();
+    else document.getElementById('auth-overlay').classList.add('show');
+    return;
+  }
+  pullTasks(type);
+}
+
+// -- GOOGLE CALENDAR --
+const CAL_COLORS = ['#7c6fff','#3ecfaa','#e05c5c','#f0a500','#4db8ff','#b06fff'];
+
+async function loadCalendar() {
+  if (!gapiToken) return;
+  const statusEl = document.getElementById('cal-status');
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = 'Loading...';
+  try {
+    const clResp = await fetch(
+      'https://www.googleapis.com/calendar/v3/users/me/calendarList',
+      {headers: {'Authorization': 'Bearer ' + gapiToken}}
+    );
+    const clData = await clResp.json();
+    const cals = (clData.items || []).filter(c => c.selected !== false);
+    const now = new Date();
+    const twoWeeks = new Date(now.getTime() + 14 * 86400000);
+    let allEvents = [];
+    for (let i = 0; i < cals.length; i++) {
+      const cal = cals[i];
+      const color = cal.backgroundColor || CAL_COLORS[i % CAL_COLORS.length];
+      try {
+        const evResp = await fetch(
+          'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(cal.id) +
+          '/events?timeMin=' + now.toISOString() + '&timeMax=' + twoWeeks.toISOString() +
+          '&singleEvents=true&orderBy=startTime&maxResults=50',
+          {headers: {'Authorization': 'Bearer ' + gapiToken}}
+        );
+        const evData = await evResp.json();
+        (evData.items || []).forEach(ev => { ev._color = color; allEvents.push(ev); });
+      } catch(e) {}
+    }
+    allEvents.sort((a,b) => {
+      const at = a.start.dateTime || a.start.date;
+      const bt = b.start.dateTime || b.start.date;
+      return at < bt ? -1 : 1;
+    });
+    renderCalendar(allEvents, now);
+    statusEl.style.color = 'var(--accent2)';
+    statusEl.textContent = 'Synced';
+  } catch(e) {
+    console.error('Calendar error:', e);
+    const s = document.getElementById('cal-status');
+    s.style.color = 'var(--red)';
+    s.textContent = 'Failed';
+  }
+}
+
+function renderCalendar(events, now) {
+  const container = document.getElementById('cal-events');
+  const placeholder = document.getElementById('cal-placeholder');
+  const miniEl = document.getElementById('cal-mini');
+  miniEl.innerHTML = '';
+  const dayShort = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    const dStr = d.toISOString().slice(0,10);
+    const hasEv = events.some(ev => (ev.start.dateTime || ev.start.date).startsWith(dStr));
+    const isToday = i === 0;
+    const cell = document.createElement('div');
+    cell.style.cssText = 'text-align:center;padding:4px 2px;border-radius:6px;font-size:10px;' +
+      (isToday ? 'background:var(--accent);color:#fff;' : 'background:var(--surface2);color:var(--muted);');
+    cell.innerHTML = '<div>' + dayShort[d.getDay()] + '</div>' +
+      '<div style="font-weight:500;font-size:11px;">' + d.getDate() + '</div>' +
+      (hasEv ? '<div style="width:4px;height:4px;border-radius:50%;background:' + (isToday?'#fff':'var(--accent2)') + ';margin:2px auto 0;"></div>' : '<div style="height:6px;"></div>');
+    miniEl.appendChild(cell);
+  }
+  Array.from(container.children).forEach(c => { if (c.id !== 'cal-placeholder') c.remove(); });
+  if (events.length === 0) {
+    placeholder.style.display = 'flex';
+    placeholder.querySelector('div:last-child').textContent = 'No upcoming events';
+    return;
+  }
+  placeholder.style.display = 'none';
+  let lastDate = '';
+  events.slice(0,30).forEach(ev => {
+    const isAllDay = !ev.start.dateTime;
+    const startRaw = ev.start.dateTime || ev.start.date;
+    const startDate = new Date(isAllDay ? startRaw + 'T00:00:00' : startRaw);
+    const dateKey = startDate.toDateString();
+    if (dateKey !== lastDate) {
+      lastDate = dateKey;
+      const div = document.createElement('div');
+      div.style.cssText = 'font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;flex-shrink:0;padding:2px 0;';
+      const isToday2 = dateKey === now.toDateString();
+      const isTomorrow = dateKey === new Date(now.getTime()+86400000).toDateString();
+      div.textContent = isToday2 ? 'Today' : isTomorrow ? 'Tomorrow' :
+        startDate.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+      container.appendChild(div);
+    }
+    const timeStr = isAllDay ? 'All day' :
+      new Date(ev.start.dateTime).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:8px;padding:8px 10px;flex-shrink:0;border-left:3px solid ' + ev._color + ';';
+    const dl = document.createElement('div');
+    dl.style.cssText = 'flex:1;min-width:0;';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    title.textContent = ev.summary || '(No title)';
+    const sub = document.createElement('div');
+    sub.style.cssText = 'font-size:10px;color:var(--muted);margin-top:1px;';
+    sub.textContent = timeStr + (ev.location ? ' · ' + ev.location.split(',')[0] : '');
+    dl.appendChild(title); dl.appendChild(sub); item.appendChild(dl);
+    container.appendChild(item);
+  });
+}
+
+setInterval(() => { if (gapiToken) loadCalendar(); }, 900000);
+
+// ── SETTINGS DRAWER ─────────────────────────────────
+function openSettings() {
+  document.getElementById('settings-drawer').classList.add('open');
+  document.getElementById('settings-scrim').classList.add('show');
+}
+function closeSettings() {
+  document.getElementById('settings-drawer').classList.remove('open');
+  document.getElementById('settings-scrim').classList.remove('show');
+}
+document.getElementById('settings-btn').addEventListener('click', openSettings);
+
+// ── SETTINGS ────────────────────────────────────────
+function applyConfig() {
+  if (cfg.spotifyUrl) {
+    document.getElementById('spotify-iframe').src = cfg.spotifyUrl;
+    document.getElementById('spotify-iframe').style.display = 'block';
+    document.getElementById('spotify-placeholder').style.display = 'none';
+    document.getElementById('spotify-url-input').value = cfg.spotifyUrl;
+  }
+  if (cfg.gapiId) {
+    document.getElementById('gapi-client-id').value = cfg.gapiId;
+    initGapi(cfg.gapiId);
+  }
+}
+
+function saveConfig() {
+  cfg.spotifyUrl = document.getElementById('spotify-url-input').value.trim();
+  cfg.gapiId = document.getElementById('gapi-client-id').value.trim();
+  localStorage.setItem('fdb_cfg', JSON.stringify(cfg));
+  applyConfig();
+  alert('Settings saved!');
+}
+
+applyConfig();
+</script>
+</body>
+</html>
