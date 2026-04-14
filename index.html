@@ -570,8 +570,7 @@ async function spotifyLogin() {
   const verifier = await generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
   localStorage.setItem('sp_verifier', verifier);
-  const redirectUri = window.location.href.split('?')[0];
-  console.log('Spotify login - redirect URI:', redirectUri);
+  const redirectUri = SP_REDIRECT;
   const params = new URLSearchParams({
     client_id: SP_CLIENT_ID,
     response_type: 'code',
@@ -587,15 +586,11 @@ async function checkSpotifyCallback() {
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
   const error = params.get('error');
-  console.log('Spotify callback - code:', code ? 'present' : 'none', 'error:', error);
   if (error) { console.error('Spotify auth error:', error); return; }
   if (!code) return;
-  // Use exact current URL as redirect (handles trailing slash variations)
-  const redirectUri = window.location.href.split('?')[0];
-  console.log('Using redirect URI:', redirectUri);
+  const redirectUri = SP_REDIRECT;
   history.replaceState(null, '', window.location.pathname);
   const verifier = localStorage.getItem('sp_verifier');
-  console.log('Verifier present:', !!verifier);
   if (!verifier) { console.error('No verifier found - login again'); return; }
   try {
     const r = await fetch('https://accounts.spotify.com/api/token', {
@@ -610,15 +605,13 @@ async function checkSpotifyCallback() {
       })
     });
     const data = await r.json();
-    console.log('Spotify token response:', JSON.stringify(data));
     if (data.access_token) {
       spToken = data.access_token;
       localStorage.setItem('sp_token', data.access_token);
       localStorage.setItem('sp_refresh', data.refresh_token);
       localStorage.setItem('sp_expires', Date.now() + data.expires_in * 1000);
       localStorage.removeItem('sp_verifier');
-      console.log('Spotify connected!');
-      initSpotify();
+          initSpotify();
     } else {
       console.error('No access token in response:', data);
     }
